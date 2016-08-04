@@ -11,7 +11,7 @@ tags:
 
 For a lecture I wanted to show why Node.js is awesome. There are many reasons why node is a great tool, but the main point for me is that it embraces async & non-blocking processing. To show that behaviour I wanted to use an old school example of reading files. For this purpose I created a small bash-script which creates 10.000 files each with a size of 10kb in a `./files` subdirectory:
 ```sh
-for i in $(seq 100); do dd if=/dev/zero of=${i} bs=1M count=10 status=none; done
+for i in $(seq 100); do dd if=/dev/zero of=./files/${i} bs=1M count=10 status=none; done
 ```
 
 Next we just need to get the list of files with `fs.readdir` and iterate over it and read each single file synchronously and asynchrounisly.
@@ -67,7 +67,7 @@ user    0m0.168s
 sys    0m0.544s
 ```
 
-Huh? Seems strange don't it!? Against our bet the the blocking `fileReadSync` seems to be faster than asynchronous & non-blocking `fileRead`. But how could that be? First I tried other combinations with 10 files each 100mb or 100 files each 10mb  and a few others but no matter what `fileReadSync` always was as fast as or up to 2 times faster than `fileRead`. After a few tries I took a guess and said that it has to be of my SSD. So I installed an old HDD into my system and retested it and watch this:
+Huh? Seems strange don't it!? Against our bet the the blocking `fileReadSync` seems to be faster than asynchronous & non-blocking `fileRead`. But how could that be? First I tried other combinations with 10 files each 100mb or 100 files each 10mb  and a few others but no matter what `fileReadSync` always was as fast as or up to 2 times faster than `fileRead`. After a few tries I took a guess and said that it has to be of my **SSD**. So I installed an old HDD into my system and retested it and watch this:
 ```
 $ time node fileReadSync.js
 
@@ -84,3 +84,7 @@ sys    0m2.712s
 ```
 
 It just worked like expected! The asynchronous example is faster than the synchronous one! So by implication the SSD is so fast that the overhead of scheduling the callbacks is much higher than just waiting for the files!
+
+## Summary
+
+`fileReadSync` is very very very fast on a good SSD and you probably don't need to care with asynchronous loading at server startup and all the callback hassle. Just load them synchronously and use your data! Nevertheless you should **always** use asynchronous `readFile` when processing data on request to not block any other requests! If someone has another opinion on my outcomes or my last recommendation please comment!
