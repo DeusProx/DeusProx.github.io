@@ -1,0 +1,239 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>DeusProx Blog</title>
+  <meta name="author" content="DeusProx">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  
+  <meta property="og:site_name" content="DeusProx Blog"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/favicon.png" rel="icon">
+  <link rel="alternate" href="/atom.xml" title="DeusProx Blog" type="application/atom+xml">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+  
+
+</head>
+
+
+<body>
+  <header id="header"><div class="meta inner">
+  <h1><a href="/">DeusProx Blog</a></h1>
+  <h2><a href="/"></a></h2>
+  <nav id="main-nav">
+    <ul>
+      
+      <li><a href="/about">About</a></li>
+      
+      <li><a href="/archives">Archives</a></li>
+      
+      <li><a href="/atom.xml">RSS</a></li>
+      
+    </ul>
+    <div class="clearfix"></div>
+  </nav>
+</div>
+<div class="clearfix"></div>
+</header>
+  <div id="content" class="inner">
+    <div id="main-col" class="alignleft"><div id="wrapper">
+  <article class="post">
+  <div class="post-content">
+    <header>
+      
+  
+    <h1 class="title"><a href="/2016/08/03/Node-js-ReadFile-Benchmark/">Node.js ReadFile Benchmark</a></h1>
+  
+
+      
+        <time datetime="2016-08-03T21:47:36.000Z">2016-08-03</time>
+      
+    </header>
+    <div class="entry">
+      
+        <p>For a lecture I wanted to show why Node.js is awesome. There are many reasons why node is a great tool, but the main point for me is that it embraces async &amp; non-blocking processing. To show that behaviour I wanted to use an old school example of reading files. For this purpose I created a small bash-script which creates 10.000 files each with a size of 10kb in a <code>./files</code> subdirectory:<br><figure class="highlight sh"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">for</span> i <span class="keyword">in</span> $(seq 100); <span class="keyword">do</span> dd <span class="keyword">if</span>=/dev/zero of=./files/<span class="variable">$&#123;i&#125;</span> bs=1M count=10 status=none; <span class="keyword">done</span></div></pre></td></tr></table></figure></p>
+<p>Next we just need to get the list of files with <code>fs.readdir</code> and iterate over it and read each single file synchronously and asynchrounisly.</p>
+<h2 id="Scripts"><a href="#Scripts" class="headerlink" title="Scripts"></a>Scripts</h2><h4 id="Synchronous"><a href="#Synchronous" class="headerlink" title="Synchronous:"></a>Synchronous:</h4><figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">let</span> fs = <span class="built_in">require</span>(<span class="string">"fs"</span>);</div><div class="line"></div><div class="line"><span class="comment">//Synchronous</span></div><div class="line">fs.readdir( <span class="string">"./files"</span>, <span class="function"><span class="keyword">function</span>(<span class="params"> error, files </span>) </span>&#123;</div><div class="line">    <span class="keyword">for</span> ( <span class="keyword">var</span> i = <span class="number">0</span>; i &lt; files.length; i++ ) &#123;</div><div class="line">        fs.readFileSync( <span class="string">"./files/"</span> + files[i])</div><div class="line">    &#125;;</div><div class="line">&#125;);</div></pre></td></tr></table></figure>
+<h4 id="Asynchronous"><a href="#Asynchronous" class="headerlink" title="Asynchronous:"></a>Asynchronous:</h4><figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">let</span> fs = <span class="built_in">require</span>(<span class="string">"fs"</span>);</div><div class="line"></div><div class="line"><span class="comment">//Asynchronous</span></div><div class="line">fs.readdir( <span class="string">"./files"</span>, <span class="function"><span class="keyword">function</span>(<span class="params"> err, files</span>) </span>&#123;</div><div class="line">    <span class="keyword">for</span> ( <span class="keyword">var</span> i = <span class="number">0</span>; i &lt; files.length; i++ ) &#123;</div><div class="line">        fs.readFile( <span class="string">"./files/"</span> + files[i], <span class="function"><span class="keyword">function</span>(<span class="params"> error, data </span>) </span>&#123;</div><div class="line">        &#125;);</div><div class="line">    &#125;</div><div class="line">&#125;);</div></pre></td></tr></table></figure>
+<p>We don’t print anything or do anything else as it would just the inaccuracy of our benchmark. A single <code>console.log()</code> for example could block the whole scripts as it is most of the times synchronous.</p>
+<p><strong><span style="color: red">Attention</span></strong>: It depends on the runtime if <code>console.log()</code> is synchronous or asynchronous depends on the runtime. In our case we use node in the TTY in Linux and thanks to the <a href="https://nodejs.org/api/console.html#console_asynchronous_vs_synchronous_consoles" target="_blank" rel="external">official documentation</a> we know that it is blocking:</p>
+<blockquote>
+<p>The console functions are usually asynchronous unless the destination is a file. Disks are fast and operating systems normally employ write-back caching; it should be a very rare occurrence indeed that a write blocks, but it is possible.</p>
+<p>Additionally, console functions are blocking when outputting to TTYs (terminals) on OS X as a workaround for the OS’s very small, 1kb buffer size. This is to prevent interleaving between stdout and stderr.</p>
+</blockquote>
+<h2 id="Benchmark"><a href="#Benchmark" class="headerlink" title="Benchmark"></a>Benchmark</h2><p>Now we are just running the scripts on our files and measuring the time with the unix builtin command <code>time</code>:<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">$ time node fileReadSync.js</div><div class="line"></div><div class="line">real    0m0.200s</div><div class="line">user    0m0.128s</div><div class="line">sys    0m0.068s</div></pre></td></tr></table></figure></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">$ time node fileReadAsync.js</div><div class="line"></div><div class="line">real    0m0.627s</div><div class="line">user    0m0.168s</div><div class="line">sys    0m0.544s</div></pre></td></tr></table></figure>
+<p>Huh? Seems strange don’t it!? Against our bet the the blocking <code>fileReadSync</code> seems to be faster than asynchronous &amp; non-blocking <code>fileRead</code>. But how could that be? First I tried other combinations with 10 files each 100mb or 100 files each 10mb  and a few others but no matter what <code>fileReadSync</code> always was as fast as or up to 2 times faster than <code>fileRead</code>. After a few tries I took a guess and said that it has to be of my <strong>SSD</strong>. So I installed an old HDD into my system and retested it and watch this:<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">$ time node fileReadSync.js</div><div class="line"></div><div class="line">real    0m4.203s</div><div class="line">user    0m0.084s</div><div class="line">sys    0m1.704s</div></pre></td></tr></table></figure></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">$ time node fileReadParallel.js</div><div class="line"></div><div class="line">real    0m1.823s</div><div class="line">user    0m0.184s</div><div class="line">sys    0m2.712s</div></pre></td></tr></table></figure>
+<p>It just worked like expected! The asynchronous example is faster than the synchronous one! So by implication the SSD is so fast that the overhead of scheduling the callbacks is much higher than just waiting for the files!</p>
+<h2 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h2><p><code>fileReadSync</code> is very very very fast on a good SSD and you probably don’t need to care with asynchronous loading at server startup and all the callback hassle. Just load them synchronously and use your data! Nevertheless you should <strong>always</strong> use asynchronous <code>readFile</code> when processing data on request to not block any other requests! If someone has another opinion on my outcomes or my last recommendation please comment!</p>
+
+      
+    </div>
+      
+        
+        
+      
+      <div class="clearfix"></div>
+      </footer>
+  </div>
+</article>
+
+
+
+
+
+  <article class="post">
+  <div class="post-content">
+    <header>
+      
+  
+    <h1 class="title"><a href="/2016/07/01/hexo-setup/">How I setup this Blog with Hexo!</a></h1>
+  
+
+      
+        <time datetime="2016-07-01T14:43:11.000Z">2016-07-01</time>
+      
+    </header>
+    <div class="entry">
+      
+        <p>Welcome to <a href="https://hexo.io/" target="_blank" rel="external">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="external">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="external">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="external">GitHub</a>.</p>
+<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">$ hexo new <span class="string">"My New Post"</span></div></pre></td></tr></table></figure>
+<p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="external">Writing</a></p>
+<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">$ hexo server</div></pre></td></tr></table></figure>
+<p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="external">Server</a></p>
+<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">$ hexo generate</div></pre></td></tr></table></figure>
+<p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="external">Generating</a></p>
+<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">$ hexo deploy</div></pre></td></tr></table></figure>
+<p>More info: <a href="https://hexo.io/docs/deployment.html" target="_blank" rel="external">Deployment</a></p>
+
+      
+    </div>
+      
+        
+        
+      
+      <div class="clearfix"></div>
+      </footer>
+  </div>
+</article>
+
+
+
+
+
+  <article class="post">
+  <div class="post-content">
+    <header>
+      
+  
+    <h1 class="title"><a href="/2016/07/01/Welcome/">Welcome to the Blog of DeusProx!</a></h1>
+  
+
+      
+        <time datetime="2016-07-01T10:23:58.000Z">2016-07-01</time>
+      
+    </header>
+    <div class="entry">
+      
+        <h2 id="Hello"><a href="#Hello" class="headerlink" title="Hello!"></a>Hello!</h2><p>This is Gordon Lawrenz and I’m an computer science student(M.Sc.) at the <a href="https://www.rwth-aachen.de/" target="_blank" rel="external">RWTH Aachen</a>. In Github I’m also known as <a href="https://github.com/DeusProx" target="_blank" rel="external">DeusProx</a>!</p>
+<p>This blog will help me documentate my work, projects and other parts of my life.<br>It is also hosted on <a href="https://github.com/" target="_blank" rel="external">GitHub</a> via <a href="https://pages.github.com/" target="_blank" rel="external">Github Pages</a> under this <a href="https://github.com/DeusProx/DeusProx.github.io" target="_blank" rel="external">repository</a>.</p>
+<p>I hope you enjoy it!</p>
+
+      
+    </div>
+      
+        
+        
+      
+      <div class="clearfix"></div>
+      </footer>
+  </div>
+</article>
+
+
+
+
+
+
+<nav id="pagination">
+  
+  
+  <div class="clearfix"></div>
+</nav></div></div>
+    <aside id="sidebar" class="alignright">
+  <div class="search">
+  <form action="//google.com/search" method="get" accept-charset="utf-8">
+    <input type="search" name="q" results="0" placeholder="Suche">
+    <input type="hidden" name="q" value="site:deusprox.github.io">
+  </form>
+</div>
+
+  
+<div class="widget tag">
+  <h3 class="title">Neueste Artikel</h3>
+  <ul class="entry">
+    
+      <li>
+        <a href="/2016/08/03/Node-js-ReadFile-Benchmark/">Node.js ReadFile Benchmark</a>
+      </li>
+    
+      <li>
+        <a href="/2016/07/01/hexo-setup/">How I setup this Blog with Hexo!</a>
+      </li>
+    
+      <li>
+        <a href="/2016/07/01/Welcome/">Welcome to the Blog of DeusProx!</a>
+      </li>
+    
+  </ul>
+</div>
+
+
+  
+
+  
+<div class="widget tagcloud">
+  <h3 class="title">Tag-Cloud</h3>
+  <div class="entry">
+    <a href="/tags/About/" style="font-size: 10px;">About</a> <a href="/tags/Async/" style="font-size: 10px;">Async</a> <a href="/tags/Benchmark/" style="font-size: 10px;">Benchmark</a> <a href="/tags/Blog/" style="font-size: 10px;">Blog</a> <a href="/tags/DeusProx/" style="font-size: 10px;">DeusProx</a> <a href="/tags/Hexo/" style="font-size: 10px;">Hexo</a> <a href="/tags/I-O/" style="font-size: 10px;">I/O</a> <a href="/tags/Node/" style="font-size: 10px;">Node</a> <a href="/tags/Sync/" style="font-size: 10px;">Sync</a> <a href="/tags/Tutorial/" style="font-size: 10px;">Tutorial</a> <a href="/tags/Welcome/" style="font-size: 10px;">Welcome</a>
+  </div>
+</div>
+
+</aside>
+    <div class="clearfix"></div>
+  </div>
+  <footer id="footer" class="inner"><div class="alignleft">
+  
+  &copy; 2016 DeusProx
+  
+</div>
+<div class="clearfix"></div></footer>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+<script type="text/javascript">
+var disqus_shortname = 'deusprox';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+</body>
+</html>
+
